@@ -3,7 +3,7 @@ const mongoose = require("mongoose")
 const cors = require("cors")
 const bycrypt = require("bcryptjs")
 const {blogmodel}=require("./models/signup")
-
+const jwt = require("jsonwebtoken")
 
 const app = express()
 app.use(cors())
@@ -15,7 +15,7 @@ const generateHashedPassword=async(password)=>{
     const salt=await bycrypt.genSalt(10)
     return bycrypt.hash(password,salt)
 }
-
+//api for signUp
 app.post("/add",async(req,res)=>{
     let input = req.body
     let hashedPassword = await generateHashedPassword(input.password)
@@ -25,13 +25,36 @@ app.post("/add",async(req,res)=>{
     blog.save()
     res.json({"status":"success"})
 })
-
-app.post("/view",(req,res)=>{
-    res.send("view")
+//api for signIn
+app.post("/signin",(req,res)=>{
+    let input = req.body
+    blogmodel.find({"email":req.body.email}).then(
+        (response)=>{
+           if (response.length>0) {
+            let dbpassword=response[0].password
+            console.log(dbpassword)
+            bycrypt.compare(input.password,dbpassword,(error,isMatch)=>{
+                if (isMatch) {
+                   jwt.sign({email:input.email},"blog-app",{expiresIn:"1d"},(error,token)=>{
+                    if (error) {
+                        res.json({"status":"unable to create token"})
+                    } else {
+                        res.json({"status":"success","userId":response[0]._id,"token":token})
+                    }
+                   })
+                } else {
+                    res.json({"status":"incorrect"})
+                }
+            })
+           } else {
+            res.json({"status":"user not found"})
+           }
+        }
+    ).catch()
 })
 
 app.post("/search",(req,res)=>{
-    res.send("search")
+    res.json({"status":"success"})
 })
 
 app.listen(8081,()=>{
